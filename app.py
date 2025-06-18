@@ -434,6 +434,7 @@ elif st.session_state.page == "Symptoms":
                 st.session_state.conversation_history = []
                 st.rerun()
 
+    
     with tab2:
         st.subheader("Describe Your Symptoms")
         

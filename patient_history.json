@@ -1,1 +1,1 @@
-{}
+{"symptoms": "I fell on a run and my ankle is swollen\nSeverity: 9/10\nDuration: 1 Hours", "diagnosis": {"reasons": ["Ankle sprain (ligament injury)", "Ankle fracture (bone break)", "Ankle contusion (bruising of soft tissues)"], "risk_rating": 7, "life_threatening": "No - While a severe ankle injury is painful and debilitating, it is not immediately life-threatening unless there are other associated injuries (e.g., head trauma from the fall)."}, "severity": 9, "duration": "1 Hours"}
