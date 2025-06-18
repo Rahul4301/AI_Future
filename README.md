@@ -6,16 +6,39 @@
 
 ## 🌟 Overview
 
-AI Future is an intelligent healthcare assistant that combines the power of artificial intelligence with user-friendly interface to provide quick medical assessments, maintain patient history, and offer smart health recommendations.
+AI Future is an intelligent healthcare assistant that combines advanced AI diagnostics with voice interaction capabilities. It provides quick medical assessments through both text and voice conversations, maintains patient history, and offers immediate access to healthcare professionals when needed.
 
 ## ✨ Features
 
-- 🤖 **Smart Symptom Analysis**: Get instant AI-powered analysis of your symptoms
-- 📊 **Risk Assessment**: Receive a detailed risk rating and recommendations
-- 📝 **Patient History Management**: Comprehensive digital health record keeping
-- 📄 **PDF Report Generation**: Download detailed health summaries
-- 🗓️ **Appointment Scheduling**: Easy virtual consultation booking
-- 🔒 **Privacy Focused**: Secure local data storage
+- 🗣️ **Voice Interaction**: 
+  - Natural conversation with AI doctor
+  - Speech-to-text for symptom description
+  - Text-to-speech for doctor's responses
+  - Real-time voice recording and playback
+
+- 🤖 **Smart Symptom Analysis**: 
+  - AI-powered symptom evaluation
+  - Medical terminology with plain language explanations
+  - Concise, focused follow-up questions
+  - Clear diagnostic assessments
+
+- 📊 **Comprehensive Assessment**:
+  - Severity scale (1-10)
+  - Duration tracking
+  - Color-coded risk levels
+  - Life-threatening condition alerts
+
+- 👨‍⚕️ **Virtual Doctor Access**:
+  - Automatic consultation scheduling for medium/high risk cases
+  - Video call appointments with Dr. AIbert
+  - Urgent care location finder
+  - Quick emergency response system
+
+- 📝 **Patient Management**: 
+  - Detailed patient history tracking
+  - Insurance information management
+  - PDF report generation
+  - Secure local data storage
 
 ## 🚀 Getting Started
 
@@ -23,6 +46,8 @@ AI Future is an intelligent healthcare assistant that combines the power of arti
 
 - Python 3.7 or higher
 - pip package manager
+- Microphone for voice interaction
+- Speakers for audio playback
 
 ### Installation
 
@@ -49,23 +74,41 @@ GEMINI_API_KEY=your_api_key_here
 streamlit run app.py
 ```
 
-## 💡 How It Works
+## 💡 How to Use
 
-1. **User Information**: Enter basic personal details
-2. **Insurance Details**: Add your insurance information
-3. **Health Assessment**:
-   - Take a comprehensive patient history
-   - Get AI-powered symptom analysis
-   - Receive risk assessments and recommendations
-4. **Report Generation**: Download detailed PDF summaries
-5. **Appointment Booking**: Schedule virtual consultations
+1. **Choose Interaction Method**:
+   - 💬 Talk to Doctor: Natural voice conversation
+   - 📝 Text Description: Written symptom description
+
+2. **Voice Interaction Mode**:
+   - Click "Start Recording" to speak
+   - Describe your symptoms naturally
+   - Click "Stop Recording" when finished
+   - Listen to doctor's response
+   - Continue conversation as needed
+
+3. **Text Description Mode**:
+   - Enter detailed symptom description
+   - Rate severity (1-10)
+   - Specify symptom duration
+   - Get instant diagnosis and recommendations
+
+4. **Review and Action**:
+   - View color-coded risk assessment
+   - Schedule video consultation if needed
+   - Access urgent care locations
+   - Download PDF summary
 
 ## 🛠️ Tech Stack
 
 - **Frontend**: Streamlit
-- **Backend**: Python
-- **PDF Generation**: FPDF
+- **Voice Processing**: 
+  - PyAudio for recording
+  - SpeechRecognition for text conversion
+  - gTTS for text-to-speech
+  - Playsound for audio playback
 - **AI Integration**: Google Gemini API
+- **PDF Generation**: FPDF
 - **Data Storage**: Local JSON files
 
 ## 📱 Screenshots
@@ -74,7 +117,7 @@ streamlit run app.py
 
 ## 🤝 Contributing
 
-Contributions are always welcome! Please read the [contribution guidelines](CONTRIBUTING.md) first.
+Contributions are welcome! Please read the [contribution guidelines](CONTRIBUTING.md) first.
 
 1. Fork the repository
 2. Create your feature branch
@@ -88,9 +131,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- Google Gemini API for powering the AI capabilities
-- Streamlit for the amazing web framework
-- The open-source community for various dependencies
+- Google Gemini API for AI capabilities
+- Streamlit for the web framework
+- PyAudio and related libraries for voice processing
+- Open-source community for various dependencies
 
 ## 📞 Support
 
