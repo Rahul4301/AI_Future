@@ -1,4 +1,4 @@
-# 🏥 AI Future - Your Smart Health Assistant
+# 🏥 AI Doctor - Your Smart Health Assistant
 
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
 [![Python](https://img.shields.io/badge/Python-3.7+-blue.svg)](https://www.python.org/)
