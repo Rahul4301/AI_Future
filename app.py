@@ -6,14 +6,6 @@ from random import randint
 import requests
 import os
 from dotenv import load_dotenv
-import pyaudio
-import wave
-import speech_recognition as sr
-from datetime import datetime
-from gtts import gTTS
-import tempfile
-from playsound import playsound
-import threading
 
 # Load environment variables
 load_dotenv()
@@ -21,144 +13,6 @@ load_dotenv()
 # Gemini API configuration
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
-
-# Audio recording parameters
-CHUNK = 1024
-FORMAT = pyaudio.paInt16
-CHANNELS = 1
-RATE = 44100
-
-class AudioRecorder:
-    def __init__(self):
-        self.is_recording = False
-        self.frames = []
-        
-    def start_recording(self):
-        self.is_recording = True
-        self.frames = []
-        self.p = pyaudio.PyAudio()
-        self.stream = self.p.open(format=FORMAT,
-                                channels=CHANNELS,
-                                rate=RATE,
-                                input=True,
-                                frames_per_buffer=CHUNK)
-        
-        # Start recording in a separate thread
-        self.record_thread = threading.Thread(target=self._record)
-        self.record_thread.start()
-    
-    def _record(self):
-        while self.is_recording:
-            data = self.stream.read(CHUNK)
-            self.frames.append(data)
-    
-    def stop_recording(self):
-        self.is_recording = False
-        if hasattr(self, 'record_thread'):
-            self.record_thread.join()
-        
-        # Stop and close the stream
-        self.stream.stop_stream()
-        self.stream.close()
-        self.p.terminate()
-        
-        # Create a temporary file for the recording
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.wav') as fp:
-            temp_filename = fp.name
-            
-        # Save the recorded data as a WAV file
-        with wave.open(temp_filename, 'wb') as wf:
-            wf.setnchannels(CHANNELS)
-            wf.setsampwidth(self.p.get_sample_size(FORMAT))
-            wf.setframerate(RATE)
-            wf.writeframes(b''.join(self.frames))
-        
-        # Transcribe the recording
-        text = transcribe_audio(temp_filename)
-        os.remove(temp_filename)
-        return text
-
-def text_to_speech(text: str):
-    """Convert text to speech and play it"""
-    try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as fp:
-            temp_filename = fp.name
-        
-        tts = gTTS(text=text)
-        tts.save(temp_filename)
-        playsound(temp_filename)
-        os.remove(temp_filename)
-    except Exception as e:
-        st.error(f"Error in text-to-speech: {str(e)}")
-
-def transcribe_audio(filename):
-    """Transcribe the audio file using Google Speech Recognition"""
-    recognizer = sr.Recognizer()
-    with sr.AudioFile(filename) as source:
-        audio = recognizer.record(source)
-        try:
-            text = recognizer.recognize_google(audio)
-            return text
-        except sr.UnknownValueError:
-            return "Speech could not be recognized"
-        except sr.RequestError:
-            return "Could not request results"
-
-def get_doctor_response(conversation_history: list) -> str:
-    """Get AI doctor's response using Gemini API"""
-    headers = {
-        "Content-Type": "application/json"
-    }
-    
-    # Count patient responses to track conversation stage
-    patient_responses = len([entry for entry in conversation_history if entry['role'] == 'patient'])
-    
-    if patient_responses <= 2:
-        # Initial responses - ask key diagnostic questions
-        prompt = f"""You are a concise medical doctor. Based on the patient's symptoms, ask ONE critical follow-up question.
-        Focus on: severity, duration, or key distinguishing symptoms. Keep your response to 1-2 sentences maximum.
-        
-        Conversation history:
-        {[f"{'Doctor' if entry['role'] == 'doctor' else 'Patient'}: {entry['text']}" for entry in conversation_history]}
-        """
-    else:
-        # Provide diagnosis
-        prompt = f"""You are a concise medical doctor. Based on the symptoms described, provide a clear diagnosis with:
-        1. Medical term (in parentheses)
-        2. Simple explanation in everyday language
-        3. One key recommendation
-        
-        Keep the entire response under 4 short sentences. Be direct and clear.
-        
-        Conversation history:
-        {[f"{'Doctor' if entry['role'] == 'doctor' else 'Patient'}: {entry['text']}" for entry in conversation_history]}
-        """
-    
-    payload = {
-        "contents": [{
-            "parts": [{
-                "text": prompt
-            }]
-        }]
-    }
-
-    try:
-        query_params = {"key": GEMINI_API_KEY}
-        response = requests.post(
-            GEMINI_API_URL,
-            params=query_params,
-            json=payload,
-            headers=headers
-        )
-        response.raise_for_status()
-        data = response.json()
-        
-        if 'candidates' in data and len(data['candidates']) > 0:
-            return data['candidates'][0]['content']['parts'][0]['text']
-        else:
-            return "I apologize, but I'm having trouble processing your response. Could you please repeat that?"
-    except Exception as e:
-        return f"I apologize, but I'm experiencing some technical difficulties. Please try again or describe your symptoms in text."
 
 def process_symptoms(symptoms: str) -> dict:
     """Process symptoms using Gemini API and return potential reasons and risk rating."""
@@ -345,194 +199,157 @@ elif st.session_state.page == "Insurance Info":
         st.rerun()
 
 elif st.session_state.page == "Symptoms":
-    st.header("Symptom Analysis")
-
-    # Initialize conversation history if not exists
-    if 'conversation_history' not in st.session_state:
-        st.session_state.conversation_history = []
-    if 'recorder' not in st.session_state:
-        st.session_state.recorder = AudioRecorder()
-        st.session_state.recording = False
-
-    # Add tabs for different input methods
-    tab1, tab2 = st.tabs(["💬 Talk to Doctor", "📝 Text Description"])
-
-    with tab1:
-        st.subheader("Have a Conversation with AI Doctor")
-        
-        # Display conversation history
-        for entry in st.session_state.conversation_history:
-            if entry['role'] == 'doctor':
-                st.write("👨‍⚕️ Doctor:", entry['text'])
-            else:
-                st.write("🤒 You:", entry['text'])
-        
-        # Initialize conversation if empty
-        if len(st.session_state.conversation_history) == 0:
-            initial_question = "Hello, I'm your AI doctor today. What brings you in today?"
-            st.session_state.conversation_history.append({
-                'role': 'doctor',
-                'text': initial_question
-            })
-            text_to_speech(initial_question)
-            st.rerun()
-        
-        # Recording controls
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🎤 Start Recording", disabled=st.session_state.recording):
-                st.session_state.recording = True
-                st.session_state.recorder.start_recording()
-                st.rerun()
-        
-        with col2:
-            if st.button("⏹️ Stop Recording", disabled=not st.session_state.recording):
-                patient_response = st.session_state.recorder.stop_recording()
-                st.session_state.recording = False
-                
-                if patient_response and patient_response != "Speech could not be recognized":
-                    # Add patient's response to conversation
-                    st.session_state.conversation_history.append({
-                        'role': 'patient',
-                        'text': patient_response
-                    })
-                    
-                    # Get and speak doctor's response
-                    doctor_response = get_doctor_response(st.session_state.conversation_history)
-                    st.session_state.conversation_history.append({
-                        'role': 'doctor',
-                        'text': doctor_response
-                    })
-                    text_to_speech(doctor_response)
-                    st.rerun()
-        
-        # Show recording status
-        if st.session_state.recording:
-            st.info("🎤 Recording in progress...")
-        
-        # End consultation button
-        if len(st.session_state.conversation_history) > 2:
-            if st.button("End Consultation"):
-                # Process all symptoms from the conversation
-                full_symptoms = " ".join([entry['text'] for entry in st.session_state.conversation_history if entry['role'] == 'patient'])
-                diagnosis = process_symptoms(full_symptoms)
-                
-                # Save consultation data
-                consultation_data = {
-                    "conversation": st.session_state.conversation_history,
-                    "diagnosis": diagnosis
-                }
-                save_patient_info(consultation_data, "patient_history.json")
-                
-                # Generate PDF summary
-                generate_pdf_summary({
-                    "Conversation": st.session_state.conversation_history,
-                    "Final Diagnosis": diagnosis
-                }, "patient_summary.pdf")
-                
-                st.success("Consultation completed! A summary has been saved.")
-                st.session_state.conversation_history = []
-                st.rerun()
-
+    st.header("How can we help you today?")
+    choice = st.radio("Choose an option:", ["Take Patient History", "Get Diagnosis"])
     
-    with tab2:
-        st.subheader("Describe Your Symptoms")
+    if choice == "Take Patient History":
+        st.subheader("Patient History Questionnaire")
+        patient_history = {}
         
-        # Symptom description
-        symptoms = st.text_area("Please describe your symptoms in detail:")
+        # Patient history questions
+        questions = {
+            "full_name": st.text_input("What is your full name?"),
+            "date_of_birth": st.text_input("What is your date of birth?"),
+            "gender": st.text_input("What gender do you identify as?"),
+            "preferred_language": st.text_input("What is your preferred language, if any?"),
+            "preferred_communication": st.text_input("What is your preferred method of communication? (e.g., phone, email, in-person)"),
+            "medical_conditions": st.text_input("Do you have any allergies or chronic conditions? If so, please list them."),
+            "current_symptoms": st.text_input("Do you have any current symptoms or concerns?"),
+            "disabilities": st.text_input("Do you have any disabilities? If so, please describe them."),
+            "past_surgeries": st.text_input("Have you had any surgeries in the past? If so, please list them."),
+            "past_hospitalizations": st.text_input("Have you had any hospitalizations in the past? If so, please list them."),
+            "past_illnesses": st.text_input("Have you had any major illnesses in the past? If so, please list them."),
+            "family_history": st.text_input("Do you have any family history of major illnesses? If so, please list them."),
+            "mental_health_history": st.text_input("Do you have any history of mental health conditions, substance abuse, domestic violence or abuse, sexual abuse, PTSD, self-harm, eating disorders, sleep disorders, chronic pain, heart disease, or any other illnesses? If so, please describe them."),
+            "tobacco_use": st.text_input("Do you smoke or use tobacco products? If so, how often?"),
+            "alcohol_use": st.text_input("Do you consume alcohol? If so, how often?"),
+            "drug_use": st.text_input("Do you use recreational drugs? If so, how often?"),
+            "dietary_restrictions": st.text_input("Do you have any dietary restrictions?"),
+            "mental_health_diagnosis": st.text_input("Have you ever been diagnosed or treated for a mental health condition?"),
+            "recent_mental_health": st.text_input("Have you felt anxious, depressed, or hopeless in the last 2 weeks?"),
+            "covid_history": st.text_input("Have you ever tested positive for COVID-19?"),
+            "long_covid": st.text_input("Did you experience long-term symptoms such as fatigue, brain fog, or breathing issues?"),
+            "current_covid_symptoms": st.text_input("Do you still experience any COVID-related symptoms today?"),
+            "primary_care": st.text_input("Do you have a primary care provider?"),
+            "primary_care_duration": st.text_input("How long have you been seeing your primary care provider?"),
+            "care_plan": st.text_input("Are you following a care plan created with a doctor?"),
+            "medication_review": st.text_input("Are your medications reviewed regularly by a healthcare professional?"),
+            "health_management": st.text_input("Do you feel confident managing your own health?"),
+            "support_needs": st.text_input("Do you need assistance from others to manage your health (e.g., emotional, financial, physical)?"),
+            "insurance_coverage": st.text_input("Do you have insurance that covers your current health needs?")
+        }
         
-        # Symptom severity
-        severity = st.slider("On a scale of 1-10, how severe are your symptoms?", 1, 10, 5)
-        
-        full_description = f"{symptoms}\nSeverity: {severity}/10"
-        
-        if st.button("Get Diagnosis"):
-            if symptoms:
-                diagnosis = process_symptoms(full_description)
+        if st.button("Submit History"):
+            # Save all answers that were provided
+            patient_history = {q: a for q, a in questions.items() if a}
+            save_patient_info(patient_history, "patient_history.json")
+            
+            # Generate PDF with questions and answers
+            pdf = FPDF()
+            pdf.add_page()
+            
+            # Header with logo space and title
+            pdf.set_font("Arial", 'B', size=16)
+            pdf.cell(200, 10, txt="Patient Summary Report", ln=True, align='C')
+            pdf.ln(5)
+            
+            # Add current date
+            pdf.set_font("Arial", size=10)
+            from datetime import datetime
+            current_date = datetime.now().strftime("%B %d, %Y")
+            pdf.cell(200, 10, txt=f"Generated on: {current_date}", ln=True, align='C')
+            pdf.ln(10)
+            
+            # Group questions by category
+            categories = {
+                "Personal Information": ["full_name", "date_of_birth", "gender", "preferred_language", "preferred_communication"],
+                "Medical History": ["medical_conditions", "current_symptoms", "disabilities", "past_surgeries", "past_hospitalizations", "past_illnesses", "family_history"],
+                "Mental Health": ["mental_health_history", "mental_health_diagnosis", "recent_mental_health"],
+                "COVID-19 History": ["covid_history", "long_covid", "current_covid_symptoms"],
+                "Lifestyle": ["tobacco_use", "alcohol_use", "drug_use", "dietary_restrictions"],
+                "Healthcare Management": ["primary_care", "primary_care_duration", "care_plan", "medication_review", "health_management", "support_needs", "insurance_coverage"]
+            }
+            
+            # Create sections for each category
+            for category, fields in categories.items():
+                pdf.set_font("Arial", 'B', size=14)
+                pdf.set_fill_color(240, 248, 241)  # Light green background
+                pdf.cell(0, 10, category, ln=True, fill=True)
+                pdf.ln(5)
                 
-                # Display diagnosis in a formatted box
-                st.markdown("""
-                    <style>
-                        .diagnosis-box { background-color: #f8f9fa; padding: 20px; border-radius: 10px; margin: 10px 0; }
-                        .risk-low { color: #28a745; }
-                        .risk-medium { color: #ffc107; }
-                        .risk-high { color: #dc3545; }
-                    </style>
-                """, unsafe_allow_html=True)
-                
-                st.markdown('<div class="diagnosis-box">', unsafe_allow_html=True)
-                
-                st.subheader("📋 Diagnosis Results")
-                
-                # Display potential causes with bullet points
-                st.write("**Potential Causes:**")
-                for reason in diagnosis["reasons"]:
-                    st.write(f"• {reason}")
-                
-                # Display risk assessment with color coding
-                risk_level = diagnosis["risk_rating"]
-                risk_class = "risk-high" if risk_level > 7 else "risk-medium" if risk_level > 4 else "risk-low"
-                st.markdown(f'<p><strong>Risk Level:</strong> <span class="{risk_class}">{risk_level}/10</span></p>', 
-                          unsafe_allow_html=True)
-                
-                # Display life-threatening assessment with emphasis
-                is_life_threatening = "Yes" in diagnosis["life_threatening"]
-                threat_class = "risk-high" if is_life_threatening else "risk-low"
-                st.markdown(f'<p><strong>Life-Threatening Assessment:</strong> <span class="{threat_class}">{diagnosis["life_threatening"]}</span></p>', 
-                          unsafe_allow_html=True)
-                
-                st.markdown('</div>', unsafe_allow_html=True)
-                
-                # Add scheduling section if risk is high or moderate
-                if risk_level > 4:
-                    st.markdown("""
-                        <style>
-                            .appointment-box {
-                                background-color: #e9ecef;
-                                padding: 20px;
-                                border-radius: 10px;
-                                margin: 20px 0;
-                                border-left: 5px solid #2E7D32;
-                            }
-                        </style>
-                    """, unsafe_allow_html=True)
-                    
-                    st.markdown(f"""
-                        <div class="appointment-box">
-                        <h3>📋 Appointment Details</h3>
-                        <p><strong>Doctor:</strong> Dr. AIbert</p>
-                        <p><strong>Consultation Type:</strong> Video Call</p>
-                        <p><strong>Available:</strong> Within 24 hours</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
-                    st.info("💡 A confirmation email will be sent with the video consultation link.")
-                    
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button("Schedule Consultation"):
-                            st.success("✅ Video consultation scheduled! Check your email for details.")
-                    with col2:
-                        if st.button("Urgent Care Locations"):
-                            st.info("🏥 Showing nearby urgent care facilities...")
-                
-                # Save the diagnosis
-                save_patient_info({
-                    "symptoms": full_description,
-                    "diagnosis": diagnosis,
-                    "severity": severity
-                }, "patient_history.json")
-                
-                # Generate PDF summary
-                generate_pdf_summary({
-                    "Symptoms": full_description,
-                    "Diagnosis": diagnosis,
-                    "Severity": f"{severity}/10"
-                }, "patient_summary.pdf")
-                
-            else:
-                st.warning("Please enter your symptoms first.")
+                pdf.set_font("Arial", size=12)
+                for field in fields:
+                    if field in patient_history and patient_history[field]:
+                        # Make the question more readable
+                        question = field.replace('_', ' ').title()
+                        pdf.set_font("Arial", 'B', size=11)
+                        pdf.multi_cell(0, 7, question)
+                        pdf.set_font("Arial", size=11)
+                        pdf.multi_cell(0, 7, patient_history[field])
+                        pdf.ln(3)
+                pdf.ln(5)
+            
+            pdf.output("patient_history.pdf")
+            
+            # Provide download button
+            with open("patient_history.pdf", "rb") as file:
+                st.download_button(
+                    label="Download Patient History PDF",
+                    data=file,
+                    file_name="patient_history.pdf",
+                    mime="application/pdf"
+                )
     
+    else:  # Get Diagnosis
+        st.subheader("Symptom Analysis")
+        symptoms = st.text_area("Describe your symptoms:")
+        pain_rating = st.slider("Rate your pain (1-10):", 1, 10)
+        # Initialize session state for analysis results if not exists
+        if 'analysis_complete' not in st.session_state:
+            st.session_state.analysis_complete = False
+            st.session_state.analysis_result = None
+
+        if st.button("Process Symptoms") or st.session_state.analysis_complete:
+            if not st.session_state.analysis_complete:
+                with st.spinner("Analyzing symptoms..."):
+                    result = process_symptoms(f"{symptoms} (Pain level: {pain_rating}/10)")
+                    st.session_state.analysis_result = result
+                    st.session_state.analysis_complete = True
+            else:
+                result = st.session_state.analysis_result
+            
+            st.subheader("Analysis Results")
+            
+            st.write("**Potential Causes:**")
+            for reason in result["reasons"]:
+                st.write(f"• {reason}")
+            
+            st.write("\n**Life-Threatening Assessment:**")
+            st.write(result.get("life_threatening", "Assessment unavailable"))
+            
+            risk_rating = result["risk_rating"]
+            st.write("\n**Risk Rating:**", risk_rating, "/10")
+                
+            # Visual risk indicator and recommended actions
+            if risk_rating >= 7:
+                st.error(f"⚠️ High Risk ({risk_rating}/10)")
+                st.error("**Recommended Action:** 🚑 Seek immediate medical attention or call emergency services. Your symptoms suggest a potentially serious condition that requires urgent medical evaluation.")
+            elif risk_rating >= 4:
+                st.warning(f"⚠️ Moderate Risk ({risk_rating}/10)")
+                st.warning("**Recommended Action:** 👨‍⚕️ Schedule an appointment with your healthcare provider within the next 24-48 hours. In the meantime:\n- Rest and avoid strenuous activity\n- Monitor your symptoms for any changes\n- Keep track of any new symptoms")
+            else:
+                st.success(f"✓ Low Risk ({risk_rating}/10)")
+                st.info("**Recommended Action:** 🏡 Your condition can likely be managed at home. Consider:\n- Over-the-counter medications if appropriate\n- Rest and hydration\n- Apply ice/heat as needed\n- Monitor symptoms and seek medical attention if they worsen")
+            
+            if risk_rating >= 8:
+                st.error("🚨 EMERGENCY: Please call emergency services or go to the nearest emergency room immediately!")
+            
+            st.markdown("---")  # Add a separator
+            if st.button("Schedule Appointment 👨‍⚕️"):
+                st.session_state.analysis_complete = False  # Reset for next time
+                st.session_state.page = "Appointment"
+                st.rerun()
+
 elif st.session_state.page == "Appointment":
     st.header("🗓️ Appointment Scheduled")
     
