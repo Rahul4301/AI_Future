@@ -444,13 +444,7 @@ elif st.session_state.page == "Symptoms":
         # Symptom severity
         severity = st.slider("On a scale of 1-10, how severe are your symptoms?", 1, 10, 5)
         
-        # Duration
-        duration_unit = st.selectbox("How long have you been experiencing these symptoms?", 
-                                   ["Hours", "Days", "Weeks", "Months"])
-        duration_number = st.number_input("Number of " + duration_unit.lower(), 
-                                        min_value=1, max_value=100, value=1)
-        
-        full_description = f"{symptoms}\nSeverity: {severity}/10\nDuration: {duration_number} {duration_unit}"
+        full_description = f"{symptoms}\nSeverity: {severity}/10"
         
         if st.button("Get Diagnosis"):
             if symptoms:
@@ -526,16 +520,14 @@ elif st.session_state.page == "Symptoms":
                 save_patient_info({
                     "symptoms": full_description,
                     "diagnosis": diagnosis,
-                    "severity": severity,
-                    "duration": f"{duration_number} {duration_unit}"
+                    "severity": severity
                 }, "patient_history.json")
                 
                 # Generate PDF summary
                 generate_pdf_summary({
                     "Symptoms": full_description,
                     "Diagnosis": diagnosis,
-                    "Severity": f"{severity}/10",
-                    "Duration": f"{duration_number} {duration_unit}"
+                    "Severity": f"{severity}/10"
                 }, "patient_summary.pdf")
                 
             else:
